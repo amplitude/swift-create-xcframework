@@ -6,7 +6,11 @@
 //
 
 import ArgumentParser
-#if swift(>=5.6)
+import Dispatch
+#if compiler(>=6.2)
+import Basics
+import func TSCBasic.tsc_await
+#elseif swift(>=5.6)
 import Basics
 #endif
 import Build
@@ -17,7 +21,7 @@ import PackageGraph
 import PackageLoading
 import PackageModel
 import SPMBuildCore
-#if swift(>=5.6)
+#if swift(>=5.6) && !compiler(>=6.2)
 import TSCBasic
 #endif
 import Workspace
@@ -86,7 +90,11 @@ struct PackageInfo {
 
         let root = try AbsolutePath(validating: self.rootDirectory.path)
 
+        #if compiler(>=6.2)
+        self.toolchain = try UserToolchain(swiftSDK: try .hostSwiftSDK())
+        #else
         self.toolchain = try UserToolchain(destination: try .hostDestination())
+        #endif
 
         #if swift(>=5.7)
         let loader = ManifestLoader(toolchain: self.toolchain)
@@ -105,7 +113,20 @@ struct PackageInfo {
         self.workspace = Workspace.create(forRootPackage: root, manifestLoader: loader)
         #endif
 
-        #if swift(>=5.6)
+        #if compiler(>=6.2)
+        let workspace = self.workspace
+        let scope = self.observabilitySystem.topScope
+        self.graph = try xcodeprojAwait {
+            try await workspace.loadPackageGraph(rootPath: root, observabilityScope: scope)
+        }
+        self.manifest = try tsc_await {
+            workspace.loadRootManifest(
+                at: root,
+                observabilityScope: scope,
+                completion: $0
+            )
+        }
+        #elseif swift(>=5.6)
         self.graph = try workspace.loadPackageGraph(rootPath: root, observabilityScope: self.observabilitySystem.topScope)
         let workspace = self.workspace
         let scope = observabilitySystem.topScope
@@ -253,6 +274,34 @@ struct PackageInfo {
     }
 
 }
+
+#if compiler(>=6.2)
+func xcodeprojAwait<T>(_ operation: @escaping () async throws -> T) throws -> T {
+    let semaphore = DispatchSemaphore(value: 0)
+    var result: Result<T, Error>!
+    Task.detached {
+        do {
+            result = .success(try await operation())
+        } catch {
+            result = .failure(error)
+        }
+        semaphore.signal()
+    }
+    semaphore.wait()
+    return try result.get()
+}
+
+func xcodeprojAwait<T>(_ operation: @escaping () async -> T) -> T {
+    let semaphore = DispatchSemaphore(value: 0)
+    var result: T!
+    Task.detached {
+        result = await operation()
+        semaphore.signal()
+    }
+    semaphore.wait()
+    return result
+}
+#endif
 
 
 // MARK: - Supported Platform Types

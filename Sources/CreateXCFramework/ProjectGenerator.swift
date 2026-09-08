@@ -6,7 +6,11 @@
 //
 
 import Foundation
+#if compiler(>=6.2)
+import Basics
+#else
 import TSCBasic
+#endif
 import TSCUtility
 import Xcodeproj
 
@@ -155,7 +159,7 @@ extension Xcode.Project {
             ///// For framework targets, generate target.c99Name_Info.plist files in the
             ///// directory that Xcode project is generated
             let name = "\(target.name.spm_mangledToC99ExtendedIdentifier())_Info.plist"
-            try open(path.appending(RelativePath(name))) { print in
+            try open(path.appending(xcodeprojRelativePath(name))) { print in
                 print(
                     """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -195,6 +199,17 @@ extension Xcode.Project {
 /// This method doesn't rewrite the file in case the new and old contents of
 /// file are same.
 private func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void) throws {
+#if compiler(>=6.2)
+    var contents = ""
+    try body { line in
+        contents += line
+        contents += "\n"
+    }
+    if let existing = try? localFileSystem.readFileContents(path).description, existing == contents {
+        return
+    }
+    try localFileSystem.writeFileContents(path, string: contents)
+#else
     let stream = BufferedOutputByteStream()
     try body { line in
         stream <<< line
@@ -209,4 +224,13 @@ private func open(_ path: AbsolutePath, body: ((String) -> Void) throws -> Void)
 
     // Write the real file.
     try localFileSystem.writeFileContents(path, bytes: stream.bytes)
+#endif
+}
+
+private func xcodeprojRelativePath(_ path: String) -> RelativePath {
+#if compiler(>=6.2)
+    return try! RelativePath(validating: path)
+#else
+    return RelativePath(path)
+#endif
 }

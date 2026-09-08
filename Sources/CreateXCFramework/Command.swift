@@ -9,7 +9,11 @@ import ArgumentParser
 import Foundation
 import PackageLoading
 import PackageModel
+#if compiler(>=6.2)
+import Basics
+#else
 import TSCBasic
+#endif
 import Workspace
 import Xcodeproj
 

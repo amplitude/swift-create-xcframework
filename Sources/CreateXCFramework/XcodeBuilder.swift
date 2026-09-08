@@ -8,7 +8,12 @@
 import Build
 import Foundation
 import PackageModel
+#if compiler(>=6.2)
+import Basics
+import class TSCBasic.Process
+#else
 import TSCBasic
+#endif
 import TSCUtility
 import Xcodeproj
 
