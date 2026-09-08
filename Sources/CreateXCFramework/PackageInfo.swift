@@ -113,23 +113,20 @@ struct PackageInfo {
         self.workspace = Workspace.create(forRootPackage: root, manifestLoader: loader)
         #endif
 
-        #if compiler(>=6.2)
+        #if swift(>=5.6)
         let workspace = self.workspace
         let scope = self.observabilitySystem.topScope
-        self.graph = try xcodeprojAwait {
-            try await workspace.loadPackageGraph(rootPath: root, observabilityScope: scope)
-        }
-        self.manifest = try tsc_await {
-            workspace.loadRootManifest(
-                at: root,
-                observabilityScope: scope,
-                completion: $0
-            )
-        }
-        #elseif swift(>=5.6)
-        self.graph = try workspace.loadPackageGraph(rootPath: root, observabilityScope: self.observabilitySystem.topScope)
-        let workspace = self.workspace
-        let scope = observabilitySystem.topScope
+        #if compiler(>=6.2)
+        self.graph = try unsafe_await { () -> Result<PackageGraph, Error> in
+            do {
+                return .success(try await workspace.loadPackageGraph(rootPath: root, observabilityScope: scope))
+            } catch {
+                return .failure(error)
+            }
+        }.get()
+        #else
+        self.graph = try workspace.loadPackageGraph(rootPath: root, observabilityScope: scope)
+        #endif
         self.manifest = try tsc_await {
             workspace.loadRootManifest(
                 at: root,
@@ -274,34 +271,6 @@ struct PackageInfo {
     }
 
 }
-
-#if compiler(>=6.2)
-func xcodeprojAwait<T>(_ operation: @escaping () async throws -> T) throws -> T {
-    let semaphore = DispatchSemaphore(value: 0)
-    var result: Result<T, Error>!
-    Task.detached {
-        do {
-            result = .success(try await operation())
-        } catch {
-            result = .failure(error)
-        }
-        semaphore.signal()
-    }
-    semaphore.wait()
-    return try result.get()
-}
-
-func xcodeprojAwait<T>(_ operation: @escaping () async -> T) -> T {
-    let semaphore = DispatchSemaphore(value: 0)
-    var result: T!
-    Task.detached {
-        result = await operation()
-        semaphore.signal()
-    }
-    semaphore.wait()
-    return result
-}
-#endif
 
 
 // MARK: - Supported Platform Types
