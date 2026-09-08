@@ -13,7 +13,12 @@ import Foundation
 import PackageGraph
 #endif
 import PackageModel
+#if !compiler(>=6.2)
 import TSCBasic
+#else
+import class TSCBasic.Process
+import struct TSCBasic.SHA256
+#endif
 import Workspace
 
 struct Zipper {
@@ -83,15 +88,29 @@ struct Zipper {
     private func versionSuffix (target: String, default fallback: String?) -> String? {
 
         // find the package that contains our target
+        #if compiler(>=6.2)
+        guard let packageRef = self.package.graph.packages.first(where: { $0.modules.contains(where: { $0.name == target }) }) else { return nil }
+        #else
         guard let packageRef = self.package.graph.packages.first(where: { $0.targets.contains(where: { $0.name == target }) }) else { return nil }
+        #endif
 
 #if swift(>=5.6)
+        #if compiler(>=6.2)
+        let dependencies = xcodeprojAwait { await self.package.workspace.state.dependencies }
+        guard
+            let dependency = dependencies[packageRef.identity],
+            case let .custom(version, _) = dependency.state
+        else {
+            return fallback.flatMap { "-" + $0 }
+        }
+        #else
         guard
             let dependency = self.package.workspace.state.dependencies[packageRef.identity],
             case let .custom(version, _) = dependency.state
         else {
             return fallback.flatMap { "-" + $0 }
         }
+        #endif
 #else
         guard
             let dependency = self.package.workspace.state.dependencies[forNameOrIdentity: packageRef.packageName],

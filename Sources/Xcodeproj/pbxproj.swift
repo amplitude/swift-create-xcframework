@@ -13,10 +13,99 @@
 #if swift(>=5.9)
 
 import Basics
+#if !compiler(>=6.2)
 import TSCBasic
+#endif
 import PackageGraph
 import PackageModel
 import PackageLoading
+
+#if compiler(>=6.2)
+private typealias XcodeprojTargetKey = ResolvedModule.ID
+private typealias XcodeprojProductKey = ResolvedProduct.ID
+
+private func xcodeprojTargetKey(_ target: ResolvedTarget) -> XcodeprojTargetKey {
+    target.id
+}
+
+private func xcodeprojProductKey(_ product: ResolvedProduct) -> XcodeprojProductKey {
+    product.id
+}
+
+private func xcodeprojTargetDependency(_ dependency: ResolvedTarget.Dependency) -> ResolvedTarget? {
+    dependency.module
+}
+
+private extension ResolvedPackage {
+    var xcodeprojTargets: [ResolvedTarget] {
+        Array(modules)
+    }
+}
+
+private extension ResolvedProduct {
+    var xcodeprojTargets: [ResolvedTarget] {
+        Array(modules)
+    }
+}
+
+private extension ResolvedTarget {
+    var xcodeprojUnderlyingTarget: Module {
+        underlying
+    }
+
+    var xcodeprojPlatforms: [SupportedPlatform] {
+        supportedPlatforms
+    }
+
+    func xcodeprojRecursiveTargetDependencies() throws -> [ResolvedTarget] {
+        try recursiveModuleDependencies()
+    }
+}
+#else
+private typealias XcodeprojTargetKey = ResolvedTarget
+private typealias XcodeprojProductKey = ResolvedProduct
+
+private func xcodeprojTargetKey(_ target: ResolvedTarget) -> XcodeprojTargetKey {
+    target
+}
+
+private func xcodeprojProductKey(_ product: ResolvedProduct) -> XcodeprojProductKey {
+    product
+}
+
+private func xcodeprojTargetDependency(_ dependency: ResolvedTarget.Dependency) -> ResolvedTarget? {
+    if case let .target(target, _) = dependency {
+        return target
+    }
+    return nil
+}
+
+private extension ResolvedPackage {
+    var xcodeprojTargets: [ResolvedTarget] {
+        targets
+    }
+}
+
+private extension ResolvedProduct {
+    var xcodeprojTargets: [ResolvedTarget] {
+        Array(targets)
+    }
+}
+
+private extension ResolvedTarget {
+    var xcodeprojUnderlyingTarget: Target {
+        underlyingTarget
+    }
+
+    var xcodeprojPlatforms: [SupportedPlatform] {
+        platforms.declared
+    }
+
+    func xcodeprojRecursiveTargetDependencies() throws -> [ResolvedTarget] {
+        try recursiveTargetDependencies()
+    }
+}
+#endif
 
 /// Errors encounter during Xcode project generation
 public enum ProjectGenerationError: Swift.Error {
@@ -96,7 +185,7 @@ public func xcodeProject(
     // Determine the source root directory (which is NOT necessarily related in
     // any way to `xcodeprojPath`, i.e. we cannot assume that the Xcode project
     // will be generated into to the source root directory).
-    let sourceRootDir = graph.rootPackages[0].path
+    let sourceRootDir = graph.rootPackages.first!.path
 
     // Set the project's notion of the source root directory to be a relative
     // path from the directory that contains the .xcodeproj to the source root
@@ -177,7 +266,7 @@ public func xcodeProject(
     // FIXME: We should parameterize this so that a package can return the path
     // of its manifest file.
     let manifestFileRef = project.mainGroup.addFileReference(path: "Package.swift", fileType: "sourcecode.swift")
-    createPackageDescriptionTarget(for: graph.rootPackages[0], manifestFileRef: manifestFileRef)
+    createPackageDescriptionTarget(for: graph.rootPackages.first!, manifestFileRef: manifestFileRef)
 
     // Add a group for the overriding .xcconfig file, if we have one.
     let xcconfigOverridesFileRef: Xcode.FileReference?
@@ -209,19 +298,20 @@ public func xcodeProject(
     }
 
     // Determine the list of external package dependencies, if any.
-    let externalPackages = graph.packages.filter({ !graph.rootPackages.contains($0) })
+    let rootPackageIdentities = Set(graph.rootPackages.map(\.identity))
+    let externalPackages = graph.packages.filter({ !rootPackageIdentities.contains($0.identity) })
 
     // Build a backmap of targets and products to packages.
-    var packagesByTarget = [ResolvedTarget: ResolvedPackage]()
+    var packagesByTarget = [XcodeprojTargetKey: ResolvedPackage]()
     for package in graph.packages {
-        for target in package.targets {
-            packagesByTarget[target] = package
+        for target in package.xcodeprojTargets {
+            packagesByTarget[xcodeprojTargetKey(target)] = package
         }
     }
-    var packagesByProduct = [ResolvedProduct: ResolvedPackage]()
+    var packagesByProduct = [XcodeprojProductKey: ResolvedPackage]()
     for package in graph.packages {
         for product in package.products {
-            packagesByProduct[product] = package
+            packagesByProduct[xcodeprojProductKey(product)] = package
         }
     }
 
@@ -306,7 +396,7 @@ public func xcodeProject(
     }
 
     let (rootModules, testModules) = { () -> ([ResolvedTarget], [ResolvedTarget]) in
-        var targets = graph.rootPackages[0].targets
+        var targets = graph.rootPackages.first!.xcodeprojTargets
         let secondPartitionIndex = targets.partition(by: { $0.type == .test })
         return (Array(targets[..<secondPartitionIndex]), Array(targets[secondPartitionIndex...]))
     }()
@@ -331,12 +421,12 @@ public func xcodeProject(
         let dependenciesGroup = project.mainGroup.addGroup(path: "", pathBase: .groupDir, name: "Dependencies")
 
         // Create set of the targets.
-        let targetSet = Set(targets)
+        let targetSet = Set(targets.map(xcodeprojTargetKey))
 
         // Add a subgroup for each external package.
         for package in externalPackages {
             // Skip if there are no targets in this package that needs to be built.
-            if targetSet.intersection(package.targets).isEmpty {
+            if !package.xcodeprojTargets.contains(where: { targetSet.contains(xcodeprojTargetKey($0)) }) {
                 continue
             }
             // TODO: use identity instead
@@ -347,7 +437,7 @@ public func xcodeProject(
             }
             // Create the source group for all the targets in the package.
             // FIXME: Eliminate filtering test from here.
-            let group = createSourceGroup(named: groupName, for: package.targets.filter({ $0.type != .test }), in: dependenciesGroup)
+            let group = createSourceGroup(named: groupName, for: package.xcodeprojTargets.filter({ $0.type != .test }), in: dependenciesGroup)
             if let group = group {
                 let manifestPath = package.path.appending(component: "Package.swift")
                 let manifestFileRef = group.addFileReference(path: manifestPath.pathString, name: "Package.swift", fileType: "sourcecode.swift")
@@ -376,11 +466,11 @@ public func xcodeProject(
     project.productGroup = productsGroup
 
     // We'll need a mapping of targets to the corresponding targets.
-    var modulesToTargets: [ResolvedTarget: Xcode.Target] = [:]
+    var modulesToTargets: [XcodeprojTargetKey: Xcode.Target] = [:]
 
     // Mapping of targets to the path of their modulemap path, if they one.
     // It also records if the modulemap is generated by SwiftPM.
-    var modulesToModuleMap: [ResolvedTarget: (path: AbsolutePath, isGenerated: Bool)] = [:]
+    var modulesToModuleMap: [XcodeprojTargetKey: (path: AbsolutePath, isGenerated: Bool)] = [:]
 
     // Go through all the targets, creating targets and adding file references
     // to the group tree (the specific top-level group under which they are
@@ -414,7 +504,7 @@ public func xcodeProject(
         }
 
         // Create a Xcode target for the target.
-        let package = packagesByTarget[target]!
+        let package = packagesByTarget[xcodeprojTargetKey(target)]!
         let xcodeTarget = project.addTarget(
             objectID: "\(package.identity)::\(target.name)",
             productType: productType, name: target.name)
@@ -435,7 +525,7 @@ public func xcodeProject(
 
         // Assign the deployment target if the package is using the newer manifest version.
         if package.manifest.toolsVersion >= .v5 {
-            for supportedPlatform in target.platforms.declared {
+            for supportedPlatform in target.xcodeprojPlatforms {
                 let version = supportedPlatform.version.versionString
                 switch supportedPlatform.platform {
                 case .macOS:
@@ -497,13 +587,17 @@ public func xcodeProject(
         targetSettings.common.SWIFT_ACTIVE_COMPILATION_CONDITIONS = ["$(inherited)"]
 
         // Set the correct SWIFT_VERSION for the Swift targets.
-        if case let swiftTarget as SwiftTarget = target.underlyingTarget {
+        if case let swiftTarget as SwiftTarget = target.xcodeprojUnderlyingTarget {
+#if compiler(>=6.2)
+            targetSettings.common.SWIFT_VERSION = swiftTarget.declaredSwiftVersions.first?.rawValue ?? "5"
+#else
             targetSettings.common.SWIFT_VERSION = swiftTarget.swiftVersion.xcodeBuildSettingValue
+#endif
         }
 
         // Add header search paths for any C target on which we depend.
         var hdrInclPaths = ["$(inherited)"]
-        for depModule in try [target] + target.recursiveTargetDependencies() {
+        for depModule in try [target] + target.xcodeprojRecursiveTargetDependencies() {
             // FIXME: Possibly factor this out into a separate protocol; the
             // idea would be that we would ask the target how it contributes
             // to the overall build environment for client targets, which can
@@ -512,7 +606,7 @@ public func xcodeProject(
 
             // FIXME: We don't need SRCROOT macro below but there is an issue with sourcekit.
             // See: <rdar://problem/21912068> SourceKit cannot handle relative include paths (working directory)
-            switch depModule.underlyingTarget {
+            switch depModule.xcodeprojUnderlyingTarget {
               case let systemTarget as SystemLibraryTarget:
                 hdrInclPaths.append("$(SRCROOT)/\(systemTarget.path.relative(to: sourceRootDir).pathString)")
                 do {
@@ -557,7 +651,7 @@ public func xcodeProject(
         // time as we set up dependencies.
 
         // Record the target that we created for this target, for later passes.
-        modulesToTargets[target] = xcodeTarget
+        modulesToTargets[xcodeprojTargetKey(target)] = xcodeTarget
 
         // Go through the target source files.  As we do, we create groups for
         // any path components other than the last one.  We also add build files
@@ -577,13 +671,13 @@ public func xcodeProject(
         }
 
         // Set C/C++ language standard.
-        if case let clangTarget as ClangTarget = target.underlyingTarget {
+        if case let clangTarget as ClangTarget = target.xcodeprojUnderlyingTarget {
             targetSettings.common.GCC_C_LANGUAGE_STANDARD = clangTarget.cLanguageStandard
             targetSettings.common.CLANG_CXX_LANGUAGE_STANDARD = clangTarget.cxxLanguageStandard
         }
 
         // Add the `include` group for a library C language target.
-        if case let clangTarget as ClangTarget = target.underlyingTarget,
+        if case let clangTarget as ClangTarget = target.xcodeprojUnderlyingTarget,
             clangTarget.type == .library,
             fileSystem.isDirectory(clangTarget.includeDir) {
             let includeDir = clangTarget.includeDir
@@ -631,23 +725,38 @@ public func xcodeProject(
             if let moduleMapPath = moduleMapPath {
                 includeGroup.addFileReference(path: moduleMapPath.pathString, name: moduleMapPath.basename)
                 // Save this modulemap path mapped to target so we can later wire it up for its dependencies.
-                modulesToModuleMap[target] = (moduleMapPath, isGenerated)
+                modulesToModuleMap[xcodeprojTargetKey(target)] = (moduleMapPath, isGenerated)
             }
         }
     }
 
     // Go through each target and add its build settings.
-    for (target, xcodeTarget) in modulesToTargets {
-        for (decl, assignments) in target.underlyingTarget.buildSettings.assignments {
+    for target in targets {
+        guard let xcodeTarget = modulesToTargets[xcodeprojTargetKey(target)] else {
+            continue
+        }
+        for (decl, assignments) in target.xcodeprojUnderlyingTarget.buildSettings.assignments {
             // Process each assignment of a build settings declaration.
             for assignment in assignments {
                 // Skip this assignment if it doesn't contain macOS platform.
-                if let platformsCondition = assignment.conditions.compactMap({ $0 as? PlatformsCondition }).first {
+#if compiler(>=6.2)
+                let platformsCondition: PlatformsCondition? = assignment.conditions.lazy.compactMap { condition -> PlatformsCondition? in
+                    guard case let .platforms(platforms) = condition else { return nil }
+                    return platforms
+                }.first
+#else
+                let platformsCondition = assignment.conditions.compactMap({ $0 as? PlatformsCondition }).first
+#endif
+                if let platformsCondition {
                     if !platformsCondition.platforms.contains(.macOS) {
                         continue
                     }
                 }
+#if compiler(>=6.2)
+                let config: BuildConfiguration? = assignment.conditions.lazy.compactMap(\.configurationCondition).first?.configuration
+#else
                 let config = assignment.conditions.compactMap { $0 as? ConfigurationCondition }.first?.configuration
+#endif
                 try appendSetting(assignment.values, forDecl: decl, to: xcodeTarget.buildSettings, config: config)
             }
         }
@@ -656,7 +765,10 @@ public func xcodeProject(
     // Go through all the target/target pairs again, and add target dependencies
     // for any target dependencies.  As we go, we also add link phases and set
     // up the targets to link against the products of the dependencies.
-    for (target, xcodeTarget) in modulesToTargets {
+    for target in targets {
+        guard let xcodeTarget = modulesToTargets[xcodeprojTargetKey(target)] else {
+            continue
+        }
         // Add link build phase (which Xcode calls "Frameworks & Libraries").
         // We need to do this whether or not there are dependencies on other
         // targets.
@@ -664,12 +776,15 @@ public func xcodeProject(
 
         // For each target on which this one depends, add a target dependency
         // and also link against the target's product.
-        for case .target(let dependency, _) in try target.recursiveDependencies() {
+        for resolvedDependency in try target.recursiveDependencies() {
+            guard let dependency = xcodeprojTargetDependency(resolvedDependency) else {
+                continue
+            }
             // We should never find ourself in the list of dependencies.
-            assert(dependency != target)
+            assert(xcodeprojTargetKey(dependency) != xcodeprojTargetKey(target))
 
             // Find the target that corresponds to the other target.
-            guard let otherTarget = modulesToTargets[dependency] else {
+            guard let otherTarget = modulesToTargets[xcodeprojTargetKey(dependency)] else {
                 // FIXME: We're depending on a target for which we didn't create
                 // a target.  This is unexpected, and we should report this as
                 // an error.
@@ -686,8 +801,8 @@ public func xcodeProject(
                 _ = linkPhase.addBuildFile(fileRef: otherTarget.productReference!)
             }
             // For swift targets, if a clang dependency has a modulemap, add it via -fmodule-map-file.
-            if let moduleMap = modulesToModuleMap[dependency], target.underlyingTarget is SwiftTarget {
-                assert(dependency.underlyingTarget is ClangTarget)
+            if let moduleMap = modulesToModuleMap[xcodeprojTargetKey(dependency)], target.xcodeprojUnderlyingTarget is SwiftTarget {
+                assert(dependency.xcodeprojUnderlyingTarget is ClangTarget)
                 xcodeTarget.buildSettings.common.OTHER_SWIFT_FLAGS += [
                     "-Xcc",
                     "-fmodule-map-file=$(SRCROOT)/\(moduleMap.path.relative(to: sourceRootDir).pathString)",
@@ -709,19 +824,19 @@ public func xcodeProject(
         // Go on to next product if we already have a target with the same name.
         if targetNames.contains(product.name) { continue }
         // Otherwise, create an aggregate target.
-        let package = packagesByProduct[product]!
+        let package = packagesByProduct[xcodeprojProductKey(product)]!
         let aggregateTarget = project.addTarget(
             objectID: "\(package.identity)::\(product.name)::ProductTarget",
             productType: nil, name: product.name
         )
         // Add dependencies on the targets created for each of the dependencies.
-        for target in product.targets {
+        for target in product.xcodeprojTargets {
             // Find the target that corresponds to the target.  There might not
             // be one, since we don't create targets for every kind of target
             // (such as system targets).
             // TODO: We will need to decide how this should best be handled; it
             // would make sense to at least emit a warning.
-            guard let depTarget = modulesToTargets[target] else {
+            guard let depTarget = modulesToTargets[xcodeprojTargetKey(target)] else {
                 continue
             }
             // Add a dependency on the dependency target.
@@ -764,7 +879,7 @@ private extension SupportedLanguageExtension {
 
 private extension ResolvedTarget {
     func fileType(forSource source: RelativePath) throws -> String {
-        switch underlyingTarget {
+        switch xcodeprojUnderlyingTarget {
         case is SwiftTarget:
             // SwiftModules only has one type of source so just always return this.
             return SupportedLanguageExtension.swift.xcodeFileType
@@ -829,6 +944,19 @@ func appendSetting(
         case nil:
             table.common.OTHER_SWIFT_FLAGS += value
         }
+
+#if compiler(>=6.2)
+    case .SWIFT_VERSION:
+        guard let value = value.last else { return }
+        switch config {
+        case .debug?:
+            table.debug.SWIFT_VERSION = value
+        case .release?:
+            table.release.SWIFT_VERSION = value
+        case nil:
+            table.common.SWIFT_VERSION = value
+        }
+#endif
 
     case .GCC_PREPROCESSOR_DEFINITIONS:
         switch config {

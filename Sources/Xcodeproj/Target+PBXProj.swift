@@ -29,7 +29,11 @@
 
 import Foundation
 
+#if compiler(>=6.2)
+import Basics
+#else
 import TSCBasic
+#endif
 import PackageGraph
 import PackageLoading
 
@@ -68,11 +72,11 @@ extension ResolvedTarget {
     var productPath: RelativePath {
         switch type {
         case .test:
-            return RelativePath("\(c99name).xctest")
+            return xcodeprojRelativePath("\(c99name).xctest")
         case .library:
-            return RelativePath("\(c99name).framework")
+            return xcodeprojRelativePath("\(c99name).framework")
         case .executable, .snippet:
-            return RelativePath(name)
+            return xcodeprojRelativePath(name)
         case .systemModule, .binary, .plugin, .macro:
             fatalError()
         }
@@ -89,6 +93,14 @@ extension ResolvedTarget {
             fatalError()
         }
     }
+}
+
+private func xcodeprojRelativePath(_ path: String) -> RelativePath {
+#if compiler(>=6.2)
+    return try! RelativePath(validating: path)
+#else
+    return RelativePath(path)
+#endif
 }
 
 #endif

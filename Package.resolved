@@ -6,8 +6,8 @@
         "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
         "state": {
           "branch": null,
-          "revision": "8f4d2753f0e4778c76d5f05ad16c74f707390531",
-          "version": "1.2.3"
+          "revision": "0fbc8848e389af3bb55c182bc19ca9d5dc2f255b",
+          "version": "1.4.0"
         }
       },
       {
@@ -15,8 +15,8 @@
         "repositoryURL": "https://github.com/apple/swift-asn1.git",
         "state": {
           "branch": null,
-          "revision": "805deae27a7506dcad043604c00a9dc52d465dcb",
-          "version": "0.7.0"
+          "revision": "d9a5b37470adc940d22c3bcd5ca6953a516b727f",
+          "version": "1.7.2"
         }
       },
       {
@@ -24,8 +24,8 @@
         "repositoryURL": "https://github.com/apple/swift-certificates.git",
         "state": {
           "branch": null,
-          "revision": "35a7df2d9d71c401a47de9be2e3de629a01370c2",
-          "version": "0.4.1"
+          "revision": "2f797305c1b5b982acaa6005d8a9f970cc4e97ff",
+          "version": "1.5.0"
         }
       },
       {
@@ -42,25 +42,25 @@
         "repositoryURL": "https://github.com/apple/swift-crypto.git",
         "state": {
           "branch": null,
-          "revision": "33a20e650c33f6d72d822d558333f2085effa3dc",
-          "version": "2.5.0"
+          "revision": "629f0b679d0fd0a6ae823d7f750b9ab032c00b80",
+          "version": "3.0.0"
         }
       },
       {
         "package": "swift-driver",
-        "repositoryURL": "https://github.com/apple/swift-driver.git",
+        "repositoryURL": "https://github.com/swiftlang/swift-driver.git",
         "state": {
-          "branch": "release/5.9",
-          "revision": "1b2b851ae4718caffa5f18fd1861bc0ddd1791a3",
+          "branch": "release/6.2",
+          "revision": "aedacc6c1583db4f2989a367e3c41968558a5b8e",
           "version": null
         }
       },
       {
         "package": "llbuild",
-        "repositoryURL": "https://github.com/apple/swift-llbuild.git",
+        "repositoryURL": "https://github.com/swiftlang/swift-llbuild.git",
         "state": {
-          "branch": "release/5.9",
-          "revision": "d73a305d6e5a82e4bf3bf1727da3d1376e87efab",
+          "branch": "release/6.2",
+          "revision": "073dff55529d7c4ecbd615ab5f5ac52ae5b380da",
           "version": null
         }
       },
@@ -68,8 +68,17 @@
         "package": "SwiftPM",
         "repositoryURL": "https://github.com/apple/swift-package-manager.git",
         "state": {
-          "branch": "release/5.9",
-          "revision": "732d5406df67b64d266c5689454cf52aecbb4d57",
+          "branch": null,
+          "revision": "215e9f91823d7e44c379fa17bf1eef189438fc24",
+          "version": null
+        }
+      },
+      {
+        "package": "swift-syntax",
+        "repositoryURL": "https://github.com/swiftlang/swift-syntax.git",
+        "state": {
+          "branch": "release/6.2",
+          "revision": "5a87516fc3dddbd23cb76358eb489915ee86b444",
           "version": null
         }
       },
@@ -83,21 +92,21 @@
         }
       },
       {
-        "package": "swift-tools-support-core",
-        "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
+        "package": "swift-toolchain-sqlite",
+        "repositoryURL": "https://github.com/swiftlang/swift-toolchain-sqlite",
         "state": {
-          "branch": "release/5.9",
-          "revision": "5665fc7641ce1a971ad06faaa476862b222ef44b",
-          "version": null
+          "branch": null,
+          "revision": "cc7ea00f730c2234a332cd264c6e5cdbb6c4f971",
+          "version": "1.0.12"
         }
       },
       {
-        "package": "Yams",
-        "repositoryURL": "https://github.com/jpsim/Yams.git",
+        "package": "swift-tools-support-core",
+        "repositoryURL": "https://github.com/swiftlang/swift-tools-support-core.git",
         "state": {
-          "branch": null,
-          "revision": "0d9ee7ea8c4ebd4a489ad7a73d5c6cad55d6fed3",
-          "version": "5.0.6"
+          "branch": "release/6.2",
+          "revision": "5a993c8848487c934d53ffceef8e1cad0a241dc1",
+          "version": null
         }
       }
     ]
