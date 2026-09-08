@@ -224,6 +224,15 @@ public struct Xcode {
             return phase
         }
 
+        /// Adds a resources build phase, which copies resources into the
+        /// built product's bundle.
+        @discardableResult
+        public func addResourcesBuildPhase() -> ResourcesBuildPhase {
+            let phase = ResourcesBuildPhase()
+            buildPhases.append(phase)
+            return phase
+        }
+
         /// Adds a "copy files" build phase, i.e. one that copies files to an
         /// arbitrary location relative to the product.
         @discardableResult
@@ -284,6 +293,11 @@ public struct Xcode {
     /// A "frameworks" build phase, i.e. one that links compiled code and
     /// libraries into the executable of the product.
     public class FrameworksBuildPhase: BuildPhase {
+        // Nothing extra yet.
+    }
+
+    /// A "resources" build phase, which copies resources into the product bundle.
+    public class ResourcesBuildPhase: BuildPhase {
         // Nothing extra yet.
     }
 

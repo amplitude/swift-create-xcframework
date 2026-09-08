@@ -229,6 +229,20 @@ struct PackageInfo {
         return productNames
     }
 
+    // MARK: - Privacy manifests
+
+    func privacyManifest(for target: String) throws -> Foundation.URL? {
+        guard let target = self.manifest.targets.first(where: { $0.name == target }) else {
+            return nil
+        }
+
+        let sourceDirectory = self.rootDirectory
+            .appendingPathComponent(target.path ?? "Sources/\(target.name)", isDirectory: true)
+        let resources = target.resources.map { sourceDirectory.appendingPathComponent($0.path) }
+
+        return try PrivacyManifest.discover(in: resources)
+    }
+
     func printAllProducts (project: Xcode.Project) {
         let allLibraryProductNames = self.manifest.libraryProductNames
         let xcodeTargetNames = project.frameworkTargets.map { $0.name }
