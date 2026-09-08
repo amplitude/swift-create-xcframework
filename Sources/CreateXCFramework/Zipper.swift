@@ -96,21 +96,16 @@ struct Zipper {
 
 #if swift(>=5.6)
         #if compiler(>=6.2)
-        let dependencies = xcodeprojAwait { await self.package.workspace.state.dependencies }
+        let dependencies = unsafe_await { await self.package.workspace.state.dependencies }
+        #else
+        let dependencies = self.package.workspace.state.dependencies
+        #endif
         guard
             let dependency = dependencies[packageRef.identity],
             case let .custom(version, _) = dependency.state
         else {
             return fallback.flatMap { "-" + $0 }
         }
-        #else
-        guard
-            let dependency = self.package.workspace.state.dependencies[packageRef.identity],
-            case let .custom(version, _) = dependency.state
-        else {
-            return fallback.flatMap { "-" + $0 }
-        }
-        #endif
 #else
         guard
             let dependency = self.package.workspace.state.dependencies[forNameOrIdentity: packageRef.packageName],

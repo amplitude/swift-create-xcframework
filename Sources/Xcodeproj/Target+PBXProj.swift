@@ -72,11 +72,11 @@ extension ResolvedTarget {
     var productPath: RelativePath {
         switch type {
         case .test:
-            return xcodeprojRelativePath("\(c99name).xctest")
+            return try! RelativePath(validating: "\(c99name).xctest")
         case .library:
-            return xcodeprojRelativePath("\(c99name).framework")
+            return try! RelativePath(validating: "\(c99name).framework")
         case .executable, .snippet:
-            return xcodeprojRelativePath(name)
+            return try! RelativePath(validating: name)
         case .systemModule, .binary, .plugin, .macro:
             fatalError()
         }
@@ -93,14 +93,6 @@ extension ResolvedTarget {
             fatalError()
         }
     }
-}
-
-private func xcodeprojRelativePath(_ path: String) -> RelativePath {
-#if compiler(>=6.2)
-    return try! RelativePath(validating: path)
-#else
-    return RelativePath(path)
-#endif
 }
 
 #endif

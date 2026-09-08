@@ -10,58 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.2)
-
-import Basics
-import PackageLoading
-import PackageModel
-
-public struct XcodeprojOptions {
-    public var flags: PackageModel.BuildFlags
-    public var xcconfigOverrides: AbsolutePath?
-    public var isCodeCoverageEnabled: Bool
-    public var useLegacySchemeGenerator: Bool
-    public var enableAutogeneration: Bool
-    public var addExtraFiles: Bool
-    public var manifestLoader: ManifestLoader?
-    public var skipBinaryTargets: Bool
-
-    public init(
-        flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
-        xcconfigOverrides: AbsolutePath? = nil,
-        isCodeCoverageEnabled: Bool? = nil,
-        useLegacySchemeGenerator: Bool? = nil,
-        enableAutogeneration: Bool? = nil,
-        addExtraFiles: Bool? = nil,
-        skipBinaryTargets: Bool? = nil
-    ) {
-        self.flags = flags
-        self.xcconfigOverrides = xcconfigOverrides
-        self.isCodeCoverageEnabled = isCodeCoverageEnabled ?? false
-        self.useLegacySchemeGenerator = useLegacySchemeGenerator ?? false
-        self.enableAutogeneration = enableAutogeneration ?? false
-        self.addExtraFiles = addExtraFiles ?? true
-        self.skipBinaryTargets = skipBinaryTargets ?? false
-    }
-}
-
-public enum XcodeProject {
-    public static func makePath(outputDir: AbsolutePath, projectName: String) throws -> AbsolutePath {
-        try AbsolutePath(validating: "\(projectName).xcodeproj", relativeTo: outputDir)
-    }
-}
-
-#else
 #if swift(>=5.9)
 
 import Basics
 import PackageGraph
 import PackageModel
 import PackageLoading
+#if !compiler(>=6.2)
 import SourceControl
 import TSCBasic
 
 import struct TSCUtility.BuildFlags
+#endif
 
 public struct XcodeprojOptions {
     /// The build flags.
@@ -115,6 +75,7 @@ public enum XcodeProject {
         return try AbsolutePath(validating: xcodeprojName, relativeTo: outputDir)
     }
 
+    #if !compiler(>=6.2)
     /// Generates an Xcode project and all needed support files.  The .xcodeproj
     /// wrapper directory is created to the path specified by `xcodeprojPath`
     /// Returns the generated project.  All ancillary files will
@@ -382,7 +343,7 @@ public enum XcodeProject {
             return true
         }) ?? []
     }
+    #endif
 }
 
-#endif
 #endif
