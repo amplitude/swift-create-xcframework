@@ -7,7 +7,25 @@ let dependencies: [Package.Dependency]
 let versionedTargets: [Target]
 let versionedDependencies: [Target.Dependency]
 
-#if swift(>=5.9)
+#if compiler(>=6.2)
+dependencies = [
+    .package(url: "https://github.com/apple/swift-argument-parser.git", .exact("1.4.0")),
+    .package(
+        name: "SwiftPM",
+        url: "https://github.com/apple/swift-package-manager.git",
+        .revision("215e9f91823d7e44c379fa17bf1eef189438fc24")
+    ),
+]
+versionedTargets = [
+    .target(
+        name: "Xcodeproj",
+        dependencies: [
+            .product(name: "SwiftPM-auto", package: "SwiftPM"),
+        ]
+    )
+]
+versionedDependencies = ["Xcodeproj"]
+#elseif swift(>=5.9)
 dependencies = [
     .package(url: "https://github.com/apple/swift-argument-parser.git", .exact("1.2.3")),
     .package(name: "SwiftPM", url: "https://github.com/apple/swift-package-manager.git", .branch("release/5.9")),
@@ -57,8 +75,21 @@ versionedTargets = []
 versionedDependencies = []
 #endif
 
+let supportDependencies: [Target.Dependency]
+#if compiler(>=6.2)
+supportDependencies = []
+#else
+supportDependencies = [
+    .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
+]
+#endif
+
 let platforms: [SupportedPlatform]
-#if swift(>=5.6)
+#if compiler(>=6.2)
+platforms = [
+    .macOS("13.0"),
+]
+#elseif swift(>=5.6)
 platforms = [
     .macOS(.v11),
 ]
@@ -81,10 +112,9 @@ let package = Package(
     dependencies: dependencies,
 
     targets: versionedTargets + [
-        .target(name: "CreateXCFramework", dependencies: versionedDependencies + [
+        .target(name: "CreateXCFramework", dependencies: versionedDependencies + supportDependencies + [
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SwiftPM-auto", package: "SwiftPM"),
-            .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
         ]),
         .testTarget(name: "CreateXCFrameworkTests", dependencies: [ "CreateXCFramework" ]),
     ],
