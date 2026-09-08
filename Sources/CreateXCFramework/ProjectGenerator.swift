@@ -110,6 +110,8 @@ struct ProjectGenerator {
         )
 #endif
 
+        try project.addPrivacyManifests(from: self.package)
+
         return project
     }
 
@@ -119,6 +121,25 @@ struct ProjectGenerator {
 // MARK: - Saving Xcode Projects
 
 extension Xcode.Project {
+
+    func addPrivacyManifests(from package: PackageInfo) throws {
+        let sourceRootDirectory = try AbsolutePath(validating: package.rootDirectory.path)
+
+        for target in self.frameworkTargets {
+            guard let manifest = try package.privacyManifest(for: target.name) else {
+                continue
+            }
+
+            let manifestPath = try AbsolutePath(validating: manifest.path)
+                .relative(to: sourceRootDirectory)
+            let manifestFileRef = self.mainGroup.addFileReference(
+                path: manifestPath.pathString,
+                pathBase: .projectDir,
+                name: PrivacyManifest.filename
+            )
+            target.addResourcesBuildPhase().addBuildFile(fileRef: manifestFileRef)
+        }
+    }
 
     /// This is the group that is normally created in Xcodeproj.xcodeProject() when you specify an xcconfigOverride
     var configGroup: Xcode.Group {

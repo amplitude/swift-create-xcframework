@@ -247,6 +247,14 @@ extension Xcode.FrameworksBuildPhase: PropertyListSerializable {
     }
 }
 
+extension Xcode.ResourcesBuildPhase: PropertyListSerializable {
+
+    /// Called by the Serializer to serialize the ResourcesBuildPhase.
+    fileprivate func serialize(to serializer: PropertyListSerializer) throws -> [String: PropertyList] {
+        return try makeBuildPhaseDict(buildPhase: self, serializer: serializer, xcodeClassName: "PBXResourcesBuildPhase")
+    }
+}
+
 extension Xcode.CopyFilesBuildPhase: PropertyListSerializable {
 
     /// Called by the Serializer to serialize the FrameworksBuildPhase.
