@@ -284,7 +284,67 @@ struct XcodeBuilder {
             throw Error.signalExit("xcodebuild", signal)
         }
 
+        try self.removeSignatures(in: outputPath)
+
         return outputPath
+    }
+
+    /// `xcodebuild -create-xcframework` can remove compiled Swift modules after
+    /// copying an already-signed framework, leaving an invalid resource seal in
+    /// the final XCFramework. Distributed frameworks are re-signed when a host
+    /// app embeds them, so remove those stale signatures rather than shipping an
+    /// artifact that advertises invalid code-signing metadata.
+    private func removeSignatures(in xcframework: Foundation.URL) throws {
+        guard let enumerator = FileManager.default.enumerator(
+            at: xcframework,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return
+        }
+
+        for case let framework as Foundation.URL in enumerator {
+            guard framework.pathExtension == "framework" else {
+                continue
+            }
+
+            let process = TSCBasic.Process(
+                arguments: ["/usr/bin/codesign", "--remove-signature", framework.path],
+                outputRedirection: .none
+            )
+            try process.launch()
+
+            let result = try process.waitUntilExit()
+            switch result.exitStatus {
+            case let .terminated(code: code):
+                if code != 0 {
+                    throw Error.nonZeroExit("codesign", code)
+                }
+            case let .signalled(signal: signal):
+                throw Error.signalExit("codesign", signal)
+            }
+
+            // `codesign --remove-signature` leaves an empty `_CodeSignature`
+            // directory in some frameworks. It is no longer meaningful once
+            // the executable signature is gone, and should not ship as stale
+            // signing metadata.
+            try Self.removeSignatureMetadata(in: framework)
+
+            enumerator.skipDescendants()
+        }
+    }
+
+    private static func removeSignatureMetadata(in framework: Foundation.URL) throws {
+        let signatureDirectories = FileManager.default.enumerator(
+            at: framework,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        )?.compactMap { $0 as? Foundation.URL }.filter {
+            $0.lastPathComponent == "_CodeSignature"
+        } ?? []
+        for signatureDirectory in signatureDirectories {
+            try FileManager.default.removeItem(at: signatureDirectory)
+        }
     }
 
     private func mergeCommand (outputPath: Foundation.URL, buildResults: [BuildResult]) throws -> [String] {
