@@ -200,7 +200,7 @@ extension Xcode.Project {
                     <key>CFBundlePackageType</key>
                     <string>FMWK</string>
                     <key>CFBundleShortVersionString</key>
-                    <string>1.0</string>
+                    <string>$(MARKETING_VERSION)</string>
                     <key>CFBundleSignature</key>
                     <string>????</string>
                     <key>CFBundleVersion</key>

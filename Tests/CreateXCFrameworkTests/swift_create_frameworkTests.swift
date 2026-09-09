@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 
 final class swift_create_frameworkTests: XCTestCase {
-    func testGeneratedFrameworkHasNoSignatureMetadata() throws {
+    func testGeneratedFrameworkUsesConfiguredVersionAndHasNoSignatureMetadata() throws {
         let temporaryDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
@@ -37,6 +37,8 @@ final class swift_create_frameworkTests: XCTestCase {
             "--output", outputDirectory.path,
             "--platform", "macos",
             "--xc-setting", "MACOSX_DEPLOYMENT_TARGET=12.0",
+            "--xc-setting", "MARKETING_VERSION=2.3.4",
+            "--xc-setting", "CURRENT_PROJECT_VERSION=2.3.4",
             "Fixture",
         ]
         process.standardOutput = FileHandle.nullDevice
@@ -52,6 +54,12 @@ final class swift_create_frameworkTests: XCTestCase {
             .compactMap { $0 as? URL }
             .filter { $0.lastPathComponent == "_CodeSignature" } ?? []
         XCTAssertTrue(signatureDirectories.isEmpty)
+
+        let infoPlist = try XCTUnwrap(
+            NSDictionary(contentsOf: framework.appendingPathComponent("Versions/A/Resources/Info.plist"))
+        )
+        XCTAssertEqual(infoPlist["CFBundleShortVersionString"] as? String, "2.3.4")
+        XCTAssertEqual(infoPlist["CFBundleVersion"] as? String, "2.3.4")
     }
 
     /// Returns path to the built products directory.
@@ -67,6 +75,6 @@ final class swift_create_frameworkTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testGeneratedFrameworkHasNoSignatureMetadata", testGeneratedFrameworkHasNoSignatureMetadata),
+        ("testGeneratedFrameworkUsesConfiguredVersionAndHasNoSignatureMetadata", testGeneratedFrameworkUsesConfiguredVersionAndHasNoSignatureMetadata),
     ]
 }
