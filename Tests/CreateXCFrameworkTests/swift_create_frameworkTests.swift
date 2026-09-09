@@ -1,32 +1,57 @@
+import Foundation
 import XCTest
-import class Foundation.Bundle
 
 final class swift_create_frameworkTests: XCTestCase {
-    func testExample() throws {
-        // This is an example of a functional test case.
-        // Use XCTAssert and related functions to verify your tests produce the correct
-        // results.
+    func testGeneratedFrameworkHasNoSignatureMetadata() throws {
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
 
-        // Some of the APIs that we use below are available in macOS 10.13 and above.
-        guard #available(macOS 10.13, *) else {
-            return
-        }
+        let sourceDirectory = temporaryDirectory.appendingPathComponent("Fixture")
+        let sourcesDirectory = sourceDirectory.appendingPathComponent("Sources/Fixture")
+        let outputDirectory = temporaryDirectory.appendingPathComponent("Output")
+        try FileManager.default.createDirectory(at: sourcesDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        try """
+        // swift-tools-version:5.9
+        import PackageDescription
 
-        let fooBinary = productsDirectory.appendingPathComponent("swift-create-xcframework")
+        let package = Package(
+            name: "Fixture",
+            platforms: [.macOS(.v12)],
+            products: [.library(name: "Fixture", targets: ["Fixture"])],
+            targets: [.target(name: "Fixture")]
+        )
+        """.write(to: sourceDirectory.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
+        try "public func example() {}\n".write(
+            to: sourcesDirectory.appendingPathComponent("Fixture.swift"),
+            atomically: true,
+            encoding: .utf8
+        )
 
         let process = Process()
-        process.executableURL = fooBinary
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-
+        process.executableURL = productsDirectory.appendingPathComponent("swift-create-xcframework")
+        process.arguments = [
+            "--package-path", sourceDirectory.path,
+            "--build-path", ".build",
+            "--output", outputDirectory.path,
+            "--platform", "macos",
+            "--xc-setting", "MACOSX_DEPLOYMENT_TARGET=12.0",
+            "Fixture",
+        ]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
         try process.run()
         process.waitUntilExit()
 
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(data: data, encoding: .utf8)
+        XCTAssertEqual(process.terminationStatus, 0)
 
-        XCTAssertEqual(output, "Hello, world!\n")
+        let framework = outputDirectory.appendingPathComponent("Fixture.xcframework/macos-arm64_x86_64/Fixture.framework")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: framework.path))
+        let signatureDirectories = FileManager.default.enumerator(at: framework, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL }
+            .filter { $0.lastPathComponent == "_CodeSignature" } ?? []
+        XCTAssertTrue(signatureDirectories.isEmpty)
     }
 
     /// Returns path to the built products directory.
@@ -42,6 +67,6 @@ final class swift_create_frameworkTests: XCTestCase {
     }
 
     static var allTests = [
-        ("testExample", testExample),
+        ("testGeneratedFrameworkHasNoSignatureMetadata", testGeneratedFrameworkHasNoSignatureMetadata),
     ]
 }
