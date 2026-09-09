@@ -231,16 +231,20 @@ struct PackageInfo {
 
     // MARK: - Privacy manifests
 
-    func privacyManifest(for target: String) throws -> Foundation.URL? {
-        guard let target = self.manifest.targets.first(where: { $0.name == target }) else {
+    func privacyManifest(for targetName: String) throws -> Foundation.URL? {
+        guard let target = self.graph.allTargets.first(where: { $0.name == targetName }) else {
             return nil
         }
 
-        let sourceDirectory = self.rootDirectory
-            .appendingPathComponent(target.path ?? "Sources/\(target.name)", isDirectory: true)
-        let resources = target.resources.map { sourceDirectory.appendingPathComponent($0.path) }
+        #if compiler(>=6.2)
+        let resources = target.underlying.resources
+        #else
+        let resources = target.underlyingTarget.resources
+        #endif
 
-        return try PrivacyManifest.discover(in: resources)
+        return try PrivacyManifest.discover(in: resources.map {
+            Foundation.URL(fileURLWithPath: $0.path.pathString)
+        })
     }
 
     func printAllProducts (project: Xcode.Project) {
