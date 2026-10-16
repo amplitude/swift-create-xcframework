@@ -30,7 +30,7 @@
   },
   "bundleDependencies": false,
   "dependencies": {
-    "tmp": "0.1.0"
+    "tmp": "0.2.6"
   },
   "deprecated": false,
   "description": "The tmp package with promises support and disposers.",
