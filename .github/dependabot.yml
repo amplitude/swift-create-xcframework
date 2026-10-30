@@ -1,0 +1,51 @@
+# Security-update PRs are triggered by alerts, independently of this schedule.
+# Keep routine version-update PRs disabled; enable security updates in repository settings.
+# The conditional Swift manifest is not supported by Dependabot.
+# Vendored .action packages need manual bundled-code verification after updates.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /.action/artifact
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /.action/core
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /.action/exec
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /.action/http-client
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /.action/io
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /.action/rimraf
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /.action/tmp
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: npm
+    directory: /.action/tmp-promise
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
