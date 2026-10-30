@@ -7,7 +7,7 @@ jobs:
   stale:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/stale@v4
+      - uses: actions/stale@a20b814fb01b71def3bd6f56e7494d667ddf28da # v4.1.1
         with:
           stale-issue-message: This issue has been marked stale as it has not been updated in 60 days. It will be closed in one week. It can be re-opened at any time.
           stale-pr-message: This PR has been marked stale as it has not been updated in 60 days. It will be closed in one week. It can be re-opened at any time.
