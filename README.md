@@ -1,10 +1,6 @@
-# NOTE:
-
-This tool is a maintained fork of the original unsignedapps/swift-create-xcframework.  This unlinked fork started off to add Xcode 15 support, after waiting for 8+ months for the original author to merge the PR.  Things like the github action, and mint installation haven't been tested.  It's currently been set up to install via `brew` or manually.  More to come, please file bugs/PRs here.
-
 # swift-create-xcframework
 
-swift-create-xcframework is a very simple tool designed to wrap `xcodebuild` and the process of creating multiple frameworks for a Swift Package and merging them into a single XCFramework.
+Amplitude maintains this fork of unsignedapps/swift-create-xcframework to package Swift libraries for distribution. The CLI uses `xcodebuild` to build frameworks for each selected platform and merge them into an XCFramework.
 
 On the 23rd of June 2020, Apple announced Xcode 12 and Swift 5.3 with support for Binary Targets. Though they provide a simplified way to [include Binary Frameworks in your packages][apple-docs], they did not provide a simple way to create your XCFrameworks, with only some [documentation for the long manual process][manual-docs]. swift-create-xcframework bridges that gap.
 
@@ -103,60 +99,17 @@ If the target you are creating is a product from the root package, unfortunately
 
 Because you're probably wanting to [distribute your binary frameworks as Swift Packages][apple-docs] `swift create-xcframework --zip` will also calculate the necessary SHA256 checksum and place it alongside the zip. eg: `ArgumentParser-0.0.6.sha256`.
 
-## GitHub Action
-
-swift-create-xcframework includes a GitHub Action that can kick off and automatically create an XCFramework when you tag a release in your project.
-
-The action produces one zipped XCFramework and checksum artifact for every target specified.
-
-**Note:** You MUST use a macOS-based runner (such as `macos-latest`) as xcodebuild doesn't run on Linux.
-
-You can then take those artifacts and add them to your release.
-
-An incomplete example:
-
-### .github/workflows/create-release.yml
-
-```yaml
-name: Create Release
-
-# Create XCFramework when a version is tagged
-on:
-  push:
-    tags:
-
-jobs:
-  create_release:
-    name: Create Release
-    runs-on: macos-latest
-    steps:
-
-      - uses: actions/checkout@v2
-
-      - name: Create XCFramework
-        uses: unsignedapps/swift-create-xcframework@v2
-
-      # Create a release
-      # Upload those artifacts to the release
-```
-
 ## Installation
 
-You can install using brew:
+Build and install the CLI from this fork:
 
 ```shell
-brew install segment-integrations/formulae/swift-create-xcframework
-```
-
-Or manually:
-
-```shell
-git clone https://github.com/unsignedapps/swift-create-xcframework.git
+git clone https://github.com/amplitude/swift-create-xcframework.git
 cd swift-create-xcframework
 make install
 ```
 
-Either should pop the swift-create-xcframework binary into `/usr/local/bin`. And because the `swift` binary is extensible, you can then call it as a subcommand of `swift` itself:
+This installs the executable in `/usr/local/bin`. Run it as a Swift subcommand:
 
 ```shell
 swift create-xcframework --help

@@ -61,7 +61,7 @@ struct Zipper {
         return zipURL
     }
 
-    func checksum (file: Foundation.URL) throws -> Foundation.URL {
+    func writeChecksum (file: Foundation.URL) throws {
 #if swift(>=5.7)
         let sum = try checksum(forBinaryArtifactAt: AbsolutePath(validating: file.path))
 #elseif swift(>=5.6)
@@ -71,7 +71,6 @@ struct Zipper {
 #endif
         let checksumFile = file.deletingPathExtension().appendingPathExtension("sha256")
         try Data(sum.utf8).write(to: checksumFile)
-        return checksumFile
     }
 
     private func zipCommand (source: Foundation.URL, target: Foundation.URL) -> [String] {
