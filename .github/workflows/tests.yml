@@ -2,67 +2,52 @@ name: Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [master]
     paths:
       - '.github/workflows/tests.yml'
       - '**/*.swift'
+      - 'Makefile'
+      - 'Package.resolved'
   pull_request:
-    branches: [ main ]
+    branches: [master]
     paths:
       - '.github/workflows/tests.yml'
       - '**/*.swift'
+      - 'Makefile'
+      - 'Package.resolved'
+
+permissions:
+  contents: read
 
 jobs:
-  tests-macos12:
-    name: Test Builds - macOS 12
-    runs-on: macos-12
-    strategy:
-      matrix:
-        xcode: [ "13.1", "13.2.1", "13.3.1", "13.4.1" ]
-
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
-    
+  package:
+    name: Package Vexil with Xcode 16.3
+    runs-on: macos-15
     steps:
-      - name: 🛒 Checkout
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: 🧱 Build
-        run: make build-release
+      - name: Select Xcode 16.3
+        run: sudo xcode-select --switch /Applications/Xcode_16.3.app
 
-      - name: 🚩 Checkout Vexil
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
+      - name: Install platform support
+        run: |
+          xcrun simctl list > /dev/null
+          sudo xcodebuild -downloadPlatform iOS
+          sudo xcodebuild -downloadPlatform tvOS
+          sudo xcodebuild -downloadPlatform watchOS
+
+      - name: Build swift-create-xcframework
+        run: make swift-create-xcframework
+
+      - name: Check out Vexil
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: unsignedapps/Vexil
-          ref: v1.2.2
+          ref: db60fb15d99fc63b02252524d2ad31bcf7b8bf33 # v1.2.2
           path: Vexil
 
-      - name: 📦 Package Vexil
-        run: cd Vexil && ../.build/release/swift-create-xcframework --zip --zip-version 1.2.2 --platform ios --platform macos --platform tvos --platform watchos
-
-  tests-macos11:
-    name: Test Builds - macOS 11
-    runs-on: macos-11.0
-    strategy:
-      matrix:
-        xcode: [ "12.4", "12.5.1", "13.0", "13.1", "13.2" ]
-
-    env:
-      DEVELOPER_DIR: /Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer
-    
-    steps:
-      - name: 🛒 Checkout
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
-
-      - name: 🧱 Build
-        run: make build-release
-
-      - name: 🚩 Checkout Vexil
-        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
-        with:
-          repository: unsignedapps/Vexil
-          ref: v1.2.2
-          path: Vexil
-
-      - name: 📦 Package Vexil
-        run: cd Vexil && ../.build/release/swift-create-xcframework --zip --zip-version 1.2.2 --platform ios --platform macos --platform tvos --platform watchos
+      - name: Package Vexil
+        working-directory: Vexil
+        run: >
+          ../.build/release/swift-create-xcframework --zip --zip-version 1.2.2
+          --platform ios --platform macos --platform tvos --platform watchos
